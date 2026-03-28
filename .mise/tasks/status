@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+#MISE description="Check if a shell is running"
+#USAGE arg "<name>" help="Session name"
+#USAGE flag "--json" help="Output as JSON"
+set -euo pipefail
+
+NAME="${usage_name:-}"
+
+if [ -z "$NAME" ]; then
+  echo "Error: session name required" >&2
+  echo "Usage: shell status <name>" >&2
+  exit 1
+fi
+
+if ! command -v zmx >/dev/null 2>&1; then
+  echo "Error: zmx is required but not installed" >&2
+  exit 1
+fi
+
+JSON="${usage_json:-false}"
+
+extract_field() {
+  local line="$1" field="$2"
+  echo "$line" | tr '\t' '\n' | grep "^${field}=" | cut -d= -f2- || true
+}
+
+# Find matching session line in zmx list
+SESSION_LINE=$(zmx list 2>/dev/null | grep "^name=${NAME}"$'\t' || true)
+
+if [ -z "$SESSION_LINE" ]; then
+  if [ "$JSON" = "true" ]; then
+    printf '{"name":"%s","status":"not found"}\n' "$NAME"
+  else
+    echo "not found"
+  fi
+  exit 1
+fi
+
+# Check for unreachable sessions
+zmx_status=$(extract_field "$SESSION_LINE" "status")
+if [ "$zmx_status" = "unreachable" ]; then
+  STATUS="unreachable"
+  EXIT_CODE=""
+else
+  ENDED=$(extract_field "$SESSION_LINE" "ended")
+  EXIT_CODE=$(extract_field "$SESSION_LINE" "exit_code")
+
+  if [ -n "$ENDED" ] && [ "$ENDED" != "0" ]; then
+    STATUS="exited"
+  else
+    STATUS="running"
+    EXIT_CODE=""
+  fi
+fi
+
+if [ "$JSON" = "true" ]; then
+  if [ -n "$EXIT_CODE" ]; then
+    printf '{"name":"%s","status":"%s","exit_code":%s}\n' "$NAME" "$STATUS" "$EXIT_CODE"
+  else
+    printf '{"name":"%s","status":"%s"}\n' "$NAME" "$STATUS"
+  fi
+else
+  if [ "$STATUS" = "exited" ] && [ -n "$EXIT_CODE" ]; then
+    echo "$STATUS ($EXIT_CODE)"
+  else
+    echo "$STATUS"
+  fi
+fi

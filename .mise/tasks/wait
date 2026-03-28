@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+#MISE description="Wait for a shell's command to finish"
+#USAGE arg "<name>" help="Session name"
+#USAGE flag "--timeout <seconds>" help="Maximum seconds to wait"
+set -euo pipefail
+
+NAME="${usage_name:-}"
+
+if [ -z "$NAME" ]; then
+  echo "Error: session name required" >&2
+  echo "Usage: shell wait <name> [--timeout <seconds>]" >&2
+  exit 1
+fi
+
+if ! command -v zmx >/dev/null 2>&1; then
+  echo "Error: zmx is required but not installed" >&2
+  exit 1
+fi
+
+if ! zmx list --short 2>/dev/null | grep -qx "$NAME"; then
+  echo "Error: no session named '$NAME'" >&2
+  exit 1
+fi
+
+TIMEOUT="${usage_timeout:-}"
+
+if [ -n "$TIMEOUT" ]; then
+  # Use timeout command to wrap zmx wait
+  if ! command -v timeout >/dev/null 2>&1; then
+    # macOS doesn't have timeout by default — use a subshell with alarm
+    ( sleep "$TIMEOUT" && kill $$ 2>/dev/null ) &
+    TIMER_PID=$!
+    zmx wait "$NAME"
+    EXIT_CODE=$?
+    kill "$TIMER_PID" 2>/dev/null || true
+    wait "$TIMER_PID" 2>/dev/null || true
+    exit "$EXIT_CODE"
+  else
+    timeout "$TIMEOUT" zmx wait "$NAME"
+  fi
+else
+  zmx wait "$NAME"
+fi

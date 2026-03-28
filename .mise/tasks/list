@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+#MISE description="List active shells"
+#USAGE flag "--json" help="Output as JSON"
+set -euo pipefail
+
+if ! command -v zmx >/dev/null 2>&1; then
+  echo "Error: zmx is required but not installed" >&2
+  exit 1
+fi
+
+JSON="${usage_json:-false}"
+
+# zmx list output format (tab-separated key=value pairs per line):
+#   name=<name>\tpid=<pid>\tclients=<n>\tcreated=<ts>\tstart_dir=<dir>\tcmd=<cmd>\tended=<ts>\texit_code=<code>
+# Lines without tabs are version/config headers — skip them.
+
+extract_field() {
+  local line="$1" field="$2"
+  echo "$line" | tr '\t' '\n' | grep "^${field}=" | cut -d= -f2- || true
+}
+
+count=0
+json_items=""
+
+while IFS= read -r line; do
+  # Skip header lines (no tabs = not session data)
+  case "$line" in *$'\t'*) ;; *) continue ;; esac
+
+  name=$(extract_field "$line" "name")
+  [ -z "$name" ] && continue
+
+  count=$((count + 1))
+
+  if [ "$JSON" = "true" ]; then
+    pid=$(extract_field "$line" "pid")
+    clients=$(extract_field "$line" "clients")
+    created=$(extract_field "$line" "created")
+    cmd=$(extract_field "$line" "cmd")
+    ended=$(extract_field "$line" "ended")
+    exit_code=$(extract_field "$line" "exit_code")
+
+    item=$(printf '{"name":"%s","pid":%s,"clients":%s,"created":%s,"cmd":"%s","ended":%s,"exit_code":%s}' \
+      "$name" "${pid:-0}" "${clients:-0}" "${created:-0}" "$cmd" "${ended:--1}" "${exit_code:--1}")
+
+    if [ -z "$json_items" ]; then
+      json_items="$item"
+    else
+      json_items="$json_items,$item"
+    fi
+  else
+    ended=$(extract_field "$line" "ended")
+    exit_code=$(extract_field "$line" "exit_code")
+    cmd=$(extract_field "$line" "cmd")
+
+    if [ -n "$ended" ] && [ "$ended" != "0" ]; then
+      sess_status="exited (${exit_code:-?})"
+    else
+      sess_status="running"
+    fi
+    printf "%-30s %-15s %s\n" "$name" "$sess_status" "$cmd"
+  fi
+done < <(zmx list 2>/dev/null)
+
+if [ "$JSON" = "true" ]; then
+  printf '[%s]\n' "$json_items"
+elif [ "$count" -eq 0 ]; then
+  echo "No active shells."
+fi

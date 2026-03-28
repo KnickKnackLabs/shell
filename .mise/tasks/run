@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+#MISE description="Launch a command in a persistent named shell"
+#USAGE arg "<name>" help="Session name (alphanumeric, hyphens, underscores)"
+#USAGE arg "<command>" help="Command to run" var=#true
+set -euo pipefail
+
+NAME="${usage_name:-}"
+
+# --- Parse variadic command args (mise passes them as a shell-escaped string) ---
+
+COMMAND=()
+if [ -n "${usage_command:-}" ]; then
+  while IFS= read -r arg; do
+    COMMAND+=("$arg")
+  done < <(printf '%s' "${usage_command}" | xargs printf '%s\n')
+fi
+
+# --- Validation ---
+
+if [ -z "$NAME" ]; then
+  echo "Error: session name required" >&2
+  echo "Usage: shell run <name> <command...>" >&2
+  exit 1
+fi
+
+if [[ "$NAME" == -* ]]; then
+  echo "Error: session name cannot start with a dash: '$NAME'" >&2
+  echo "  (zmx treats this as the session name, not a flag)" >&2
+  exit 1
+fi
+
+if ! [[ "$NAME" =~ ^[a-zA-Z0-9][a-zA-Z0-9._-]*$ ]]; then
+  echo "Error: invalid session name '$NAME'" >&2
+  echo "  Names must start with alphanumeric, then alphanumeric, hyphens, underscores, or dots" >&2
+  exit 1
+fi
+
+if [ ${#COMMAND[@]} -eq 0 ]; then
+  echo "Error: command required" >&2
+  echo "Usage: shell run <name> <command...>" >&2
+  exit 1
+fi
+
+# --- Dependency check ---
+
+if ! command -v zmx >/dev/null 2>&1; then
+  echo "Error: zmx is required but not installed" >&2
+  echo "  Install: https://zmx.sh" >&2
+  exit 1
+fi
+
+# --- Check for existing session ---
+
+if zmx list --short 2>/dev/null | grep -qx "$NAME"; then
+  echo "Error: session '$NAME' already exists" >&2
+  echo "  Use 'shell kill $NAME' first, or choose a different name" >&2
+  exit 1
+fi
+
+# --- Launch ---
+# Suppress zmx's "session created" / "command sent" output.
+# The session name is printed by this task on success.
+
+zmx run "$NAME" "${COMMAND[@]}" </dev/null >/dev/null 2>&1
+echo "$NAME"

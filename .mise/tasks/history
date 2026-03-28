@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+#MISE description="Show scrollback output from a shell"
+#USAGE arg "<name>" help="Session name"
+#USAGE flag "--vt" help="Include VT escape sequences (colors)"
+#USAGE flag "--html" help="Render as HTML"
+set -euo pipefail
+
+NAME="${usage_name:-}"
+
+if [ -z "$NAME" ]; then
+  echo "Error: session name required" >&2
+  echo "Usage: shell history <name> [--vt] [--html]" >&2
+  exit 1
+fi
+
+if ! command -v zmx >/dev/null 2>&1; then
+  echo "Error: zmx is required but not installed" >&2
+  exit 1
+fi
+
+if ! zmx list --short 2>/dev/null | grep -qx "$NAME"; then
+  echo "Error: no session named '$NAME'" >&2
+  exit 1
+fi
+
+ARGS=("$NAME")
+[[ "${usage_vt:-}" == "true" ]] && ARGS+=("--vt")
+[[ "${usage_html:-}" == "true" ]] && ARGS+=("--html")
+
+zmx history "${ARGS[@]}"
