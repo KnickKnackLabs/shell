@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 #MISE description="Launch a command in a persistent named shell"
 #USAGE arg "<name>" help="Session name (alphanumeric, hyphens, underscores)"
+#USAGE flag "--cwd <cwd>" help="Working directory for the command"
 #USAGE arg "<command>" help="Command to run" var=#true
 set -euo pipefail
 
 NAME="${usage_name:-}"
+CWD="${usage_cwd:-}"
 
 # --- Parse variadic command args (mise passes them as a shell-escaped string) ---
 
@@ -61,5 +63,15 @@ fi
 # Suppress zmx's "session created" / "command sent" output.
 # The session name is printed by this task on success.
 
-zmx run "$NAME" "${COMMAND[@]}" </dev/null >/dev/null 2>&1
+if [ -n "$CWD" ]; then
+  if [ ! -d "$CWD" ]; then
+    echo "Error: --cwd directory not found: $CWD" >&2
+    exit 1
+  fi
+  # Wrap command with cd — zmx spawns shells in its own directory,
+  # not the caller's, so we must cd inside the command itself.
+  zmx run "$NAME" bash -c "cd $(printf '%q' "$CWD") && $(printf '%q ' "${COMMAND[@]}")" </dev/null >/dev/null 2>&1
+else
+  zmx run "$NAME" "${COMMAND[@]}" </dev/null >/dev/null 2>&1
+fi
 echo "$NAME"

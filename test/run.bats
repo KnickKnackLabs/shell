@@ -50,3 +50,18 @@ teardown() { teardown_zmx; }
   run zmx history "${TEST_PREFIX}-exec"
   echo "$output" | grep -q "shell-test-marker"
 }
+
+@test "run --cwd sets working directory" {
+  TESTDIR=$(mktemp -d)
+  shell run "${TEST_PREFIX}-cwd" --cwd "$TESTDIR" pwd
+  shell wait "${TEST_PREFIX}-cwd"
+  run zmx history "${TEST_PREFIX}-cwd"
+  echo "$output" | grep -q "$TESTDIR"
+  rmdir "$TESTDIR"
+}
+
+@test "run --cwd errors on nonexistent directory" {
+  run shell run "${TEST_PREFIX}-badcwd" --cwd "/tmp/nonexistent-$$" echo hello
+  [ "$status" -ne 0 ]
+  echo "$output" | grep -qi "not found"
+}
