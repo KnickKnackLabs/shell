@@ -1,21 +1,5 @@
 <div align="center">
 
-<pre>
-  $ shell run scout shimmer agent --headless "review PR #50"
-  scout
-
-  $ shell status scout
-  running
-
-  $ shell history scout
-  Reading src/handler.rs...
-  Found 3 issues in error handling.
-  Posted review to #scout-report.
-
-  $ shell wait scout
-  $
-</pre>
-
 # shell
 
 **Persistent named shells for AI agents.**
@@ -30,6 +14,22 @@ come back later, read its output, send it input.
 ![license: MIT](https://img.shields.io/badge/license-MIT-blue?style=flat)
 
 </div>
+
+```
+$ shell run scout shimmer agent --headless "review PR #50"
+scout
+
+$ shell status scout
+running
+
+$ shell history scout
+Reading src/handler.rs...
+Found 3 issues in error handling.
+Posted review to #scout-report.
+
+$ shell wait scout
+$
+```
 
 <br />
 

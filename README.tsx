@@ -38,19 +38,19 @@ const batsVersion =
 // ── Visual hook ──────────────────────────────────────────────
 
 const lifecycle = [
-  "  $ shell run scout shimmer agent --headless \"review PR #50\"",
-  "  scout",
+  "$ shell run scout shimmer agent --headless \"review PR #50\"",
+  "scout",
   "",
-  "  $ shell status scout",
-  "  running",
+  "$ shell status scout",
+  "running",
   "",
-  "  $ shell history scout",
-  "  Reading src/handler.rs...",
-  "  Found 3 issues in error handling.",
-  "  Posted review to #scout-report.",
+  "$ shell history scout",
+  "Reading src/handler.rs...",
+  "Found 3 issues in error handling.",
+  "Posted review to #scout-report.",
   "",
-  "  $ shell wait scout",
-  "  $",
+  "$ shell wait scout",
+  "$",
 ].join("\n");
 
 // ── Spawning stack ───────────────────────────────────────────
@@ -67,8 +67,6 @@ const stack = [
 const readme = (
   <>
     <Center>
-      <Raw>{`<pre>\n${lifecycle}\n</pre>\n\n`}</Raw>
-
       <Heading level={1}>shell</Heading>
 
       <Paragraph>
@@ -92,6 +90,8 @@ const readme = (
         <Badge label="license" value="MIT" color="blue" />
       </Badges>
     </Center>
+
+    <CodeBlock>{lifecycle}</CodeBlock>
 
     <LineBreak />
 
