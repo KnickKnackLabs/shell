@@ -54,9 +54,18 @@ fi
 # --- Check for existing session ---
 
 if zmx list --short 2>/dev/null | grep -qx "$NAME"; then
-  echo "Error: session '$NAME' already exists" >&2
-  echo "  Use 'shell kill $NAME' first, or choose a different name" >&2
-  exit 1
+  # Session exists — check if it's idle or busy
+  SESSION_INFO=$(zmx list 2>/dev/null | grep "^name=$NAME	" || true)
+  if echo "$SESSION_INFO" | grep -q "ended="; then
+    # Idle (previous command finished, shell at prompt) — allow reuse
+    :
+  else
+    # Busy (command still running)
+    echo "Error: session '$NAME' is busy (command still running)" >&2
+    echo "  Use 'shell send $NAME <input>' to send input to the running process" >&2
+    echo "  Or 'shell kill $NAME' to stop it" >&2
+    exit 1
+  fi
 fi
 
 # --- Launch ---

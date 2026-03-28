@@ -36,11 +36,12 @@ teardown() { teardown_zmx; }
   echo "$output" | grep -qi "command\|arg"
 }
 
-@test "run fails if session already exists" {
+@test "run on busy session errors" {
   shell run "${TEST_PREFIX}-dup" sleep 30
+  sleep 0.5
   run shell run "${TEST_PREFIX}-dup" echo again
   [ "$status" -ne 0 ]
-  echo "$output" | grep -qi "already exists"
+  echo "$output" | grep -qi "busy\|running"
 }
 
 @test "run executes the given command" {

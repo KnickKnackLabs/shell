@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+#MISE description="Send input to a running shell session"
+#USAGE arg "<name>" help="Session name"
+#USAGE arg "<input>" help="Text to send to the session's PTY" var=#true
+set -euo pipefail
+
+NAME="${usage_name:-}"
+
+# --- Parse variadic input args ---
+
+INPUT=()
+if [ -n "${usage_input:-}" ]; then
+  while IFS= read -r arg; do
+    INPUT+=("$arg")
+  done < <(printf '%s' "${usage_input}" | xargs printf '%s\n')
+fi
+
+# --- Validation ---
+
+if [ -z "$NAME" ]; then
+  echo "Error: session name required" >&2
+  echo "Usage: shell send <name> <input>" >&2
+  exit 1
+fi
+
+if [ ${#INPUT[@]} -eq 0 ]; then
+  echo "Error: input required" >&2
+  echo "Usage: shell send <name> \"text to send\"" >&2
+  exit 1
+fi
+
+# --- Dependency check ---
+
+if ! command -v zmx >/dev/null 2>&1; then
+  echo "Error: zmx is required but not installed" >&2
+  exit 1
+fi
+
+# --- Check session exists ---
+
+if ! zmx list --short 2>/dev/null | grep -qx "$NAME"; then
+  echo "Error: no session named '$NAME'" >&2
+  echo "  Use 'shell list' to see active sessions" >&2
+  exit 1
+fi
+
+# --- Send ---
+# zmx run on an existing session sends text to the shell's PTY stdin.
+
+zmx run "$NAME" "${INPUT[@]}" </dev/null >/dev/null 2>&1
