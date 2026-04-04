@@ -3,6 +3,6 @@ quiet = true
 task_output = "interleave"
 
 [tools]
-"github:KnickKnackLabs/zmx" = "0.4.2-kkl.2"
+"github:KnickKnackLabs/zmx" = "0.4.2-kkl.3"
 usage = "latest"
 bats = "1.13.0"
