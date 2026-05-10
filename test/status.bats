@@ -41,3 +41,9 @@ teardown() { teardown_zmx; }
   [ "$status" -eq 1 ]
   echo "$output" | grep -q "not found"
 }
+
+@test "status --json escapes nonexistent session names" {
+  run shell status --json 'bad"name'
+  [ "$status" -eq 1 ]
+  printf '%s\n' "$output" | head -n 1 | jq -e '.name == "bad\"name" and .status == "not found"' >/dev/null
+}
