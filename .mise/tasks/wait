@@ -32,8 +32,12 @@ if [ -n "$TIMEOUT" ]; then
     TIMER_PID=$!
     zmx wait "$NAME"
     EXIT_CODE=$?
-    kill "$TIMER_PID" 2>/dev/null || true
-    wait "$TIMER_PID" 2>/dev/null || true
+    if kill "$TIMER_PID" 2>/dev/null; then
+      :
+    fi
+    if wait "$TIMER_PID" 2>/dev/null; then
+      :
+    fi
     exit "$EXIT_CODE"
   else
     timeout "$TIMEOUT" zmx wait "$NAME"

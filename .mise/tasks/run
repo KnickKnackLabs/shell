@@ -53,19 +53,21 @@ fi
 
 # --- Check for existing session ---
 
-if zmx list --short 2>/dev/null | grep -qx "$NAME"; then
-  # Session exists — check if it's idle or busy
-  SESSION_INFO=$(zmx list 2>/dev/null | grep "^name=$NAME	" || true)
-  if echo "$SESSION_INFO" | grep -q "ended="; then
-    # Idle (previous command finished, shell at prompt) — allow reuse
-    :
-  else
-    # Busy (command still running)
-    echo "Error: session '$NAME' is busy (command still running)" >&2
-    echo "  Use 'shell send $NAME <input>' to send input to the running process" >&2
-    echo "  Or 'shell kill $NAME' to stop it" >&2
-    exit 1
-  fi
+SESSION_STATUS=$(zmx list --json 2>/dev/null | jq -r --arg name "$NAME" 'first(.[] | select(.name == $name) | .status) // empty')
+if [ -n "$SESSION_STATUS" ]; then
+  case "$SESSION_STATUS" in
+    exited*)
+      # Idle (previous command finished, shell at prompt) — allow reuse.
+      :
+    ;;
+    *)
+      # Busy (command still running)
+      echo "Error: session '$NAME' is busy (command still running)" >&2
+      echo "  Use 'shell send $NAME <input>' to send input to the running process" >&2
+      echo "  Or 'shell kill $NAME' to stop it" >&2
+      exit 1
+    ;;
+  esac
 fi
 
 # --- Launch ---
