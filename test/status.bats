@@ -25,7 +25,15 @@ teardown() { teardown_zmx; }
   shell run "${TEST_PREFIX}-jstat" sleep 30
   run shell status --json "${TEST_PREFIX}-jstat"
   [ "$status" -eq 0 ]
-  echo "$output" | python3 -c "import sys,json; d=json.load(sys.stdin); assert d['status']=='running'"
+  echo "$output" | jq -e '.status == "running"' >/dev/null
+}
+
+@test "status --json normalizes exited sessions with exit_code" {
+  shell run "${TEST_PREFIX}-jdone" echo done
+  shell wait "${TEST_PREFIX}-jdone"
+  run shell status --json "${TEST_PREFIX}-jdone"
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '.status == "exited" and .exit_code == 0' >/dev/null
 }
 
 @test "status exits 1 for nonexistent session" {

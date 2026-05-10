@@ -19,15 +19,9 @@ fi
 
 JSON="${usage_json:-false}"
 
-extract_field() {
-  local line="$1" field="$2"
-  echo "$line" | tr '\t' '\n' | grep "^${field}=" | cut -d= -f2- || true
-}
+SESSION_JSON=$(zmx list --json 2>/dev/null | jq -c --arg name "$NAME" 'first(.[] | select(.name == $name)) // empty')
 
-# Find matching session line in zmx list
-SESSION_LINE=$(zmx list 2>/dev/null | grep "^name=${NAME}"$'\t' || true)
-
-if [ -z "$SESSION_LINE" ]; then
+if [ -z "$SESSION_JSON" ]; then
   if [ "$JSON" = "true" ]; then
     printf '{"name":"%s","status":"not found"}\n' "$NAME"
   else
@@ -36,22 +30,22 @@ if [ -z "$SESSION_LINE" ]; then
   exit 1
 fi
 
-# Check for unreachable sessions
-zmx_status=$(extract_field "$SESSION_LINE" "status")
-if [ "$zmx_status" = "unreachable" ]; then
-  STATUS="unreachable"
-  EXIT_CODE=""
-else
-  ENDED=$(extract_field "$SESSION_LINE" "ended")
-  EXIT_CODE=$(extract_field "$SESSION_LINE" "exit_code")
+ZMX_STATUS=$(printf '%s' "$SESSION_JSON" | jq -r '.status // ""')
+EXIT_CODE=$(printf '%s' "$SESSION_JSON" | jq -r '.exit_code // empty')
 
-  if [ -n "$ENDED" ] && [ "$ENDED" != "0" ]; then
+case "$ZMX_STATUS" in
+  exited*)
     STATUS="exited"
-  else
+  ;;
+  unreachable)
+    STATUS="unreachable"
+    EXIT_CODE=""
+  ;;
+  *)
     STATUS="running"
     EXIT_CODE=""
-  fi
-fi
+  ;;
+esac
 
 if [ "$JSON" = "true" ]; then
   if [ -n "$EXIT_CODE" ]; then
