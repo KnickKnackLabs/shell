@@ -38,7 +38,7 @@ fi
 
 # --- Check session exists ---
 
-if ! zmx list --short 2>/dev/null | grep -qx "$NAME"; then
+if ! zmx list --json 2>/dev/null | jq -e --arg name "$NAME" 'any(.[]; .name == $name)' >/dev/null; then
   echo "Error: no session named '$NAME'" >&2
   echo "  Use 'shell list' to see active sessions" >&2
   exit 1

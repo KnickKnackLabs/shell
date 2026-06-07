@@ -7,7 +7,8 @@ shiv = "https://github.com/KnickKnackLabs/vfox-shiv"
 
 [tools]
 "github:KnickKnackLabs/zmx" = "0.4.2-kkl.3"
-"shiv:codebase" = "0.2.0"
+"shiv:codebase" = "0.3"
+"shiv:readme" = "0.3"
 usage = "latest"
 jq = "1.8.1"
 bats = "1.13.0"
