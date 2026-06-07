@@ -17,7 +17,7 @@ if ! command -v zmx >/dev/null 2>&1; then
   exit 1
 fi
 
-if ! zmx list --short 2>/dev/null | grep -qx "$NAME"; then
+if ! zmx list --json 2>/dev/null | jq -e --arg name "$NAME" 'any(.[]; .name == $name)' >/dev/null; then
   echo "Error: no session named '$NAME'" >&2
   exit 1
 fi

@@ -13,6 +13,24 @@ teardown() { teardown_zmx; }
   echo "$output" | grep -q "history-marker-$$"
 }
 
+@test "hyphenated running session resolves for status send and history" {
+  local name="${TEST_PREFIX}-gitcrypt-workspaces"
+
+  shell run "$name" cat
+  sleep 0.5
+
+  run shell status "$name"
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -q "running"
+
+  shell send "$name" "hyphenated-history-marker-$$"
+  sleep 0.5
+
+  run shell history "$name"
+  [ "$status" -eq 0 ]
+  echo "$output" | grep -q "hyphenated-history-marker-$$"
+}
+
 @test "history errors on nonexistent session" {
   run shell history "nonexistent-session-$$"
   [ "$status" -ne 0 ]
