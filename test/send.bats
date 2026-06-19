@@ -17,6 +17,46 @@ teardown() { teardown_zmx; }
   echo "$output" | grep -q "hello from send"
 }
 
+@test "send does not inject zmx task completion markers" {
+  shell run "${TEST_PREFIX}-marker" python3 -u -c 'import sys; print("ready", flush=True); line=sys.stdin.readline(); print("got:" + repr(line), flush=True); sys.stdin.readline()'
+  sleep 0.5
+
+  shell send "${TEST_PREFIX}-marker" "hello marker check"
+  sleep 0.5
+
+  run zmx history "${TEST_PREFIX}-marker"
+  echo "$output" | grep -q "hello marker check"
+  echo "$output" | grep -q "got:.*hello marker check"
+  ! echo "$output" | grep -q "got:.*ZMX_TASK_COMPLETED"
+}
+
+@test "send --raw does not append carriage return" {
+  shell run "${TEST_PREFIX}-raw" python3 -u -c 'import sys; print("ready", flush=True); line=sys.stdin.readline(); print("got:" + line, flush=True); sys.stdin.readline()'
+  sleep 0.5
+
+  shell send --raw "${TEST_PREFIX}-raw" "partial"
+  sleep 0.5
+  run zmx history "${TEST_PREFIX}-raw"
+  ! echo "$output" | grep -q "got:partial"
+
+  printf '\r' | shell send --raw "${TEST_PREFIX}-raw"
+  sleep 0.5
+  run zmx history "${TEST_PREFIX}-raw"
+  echo "$output" | grep -q "got:partial"
+}
+
+@test "send forwards piped stdin exactly" {
+  shell run "${TEST_PREFIX}-stdin" python3 -u -c 'import sys; print("ready", flush=True); print("got1:" + sys.stdin.readline(), flush=True); print("got2:" + sys.stdin.readline(), flush=True); sys.stdin.readline()'
+  sleep 0.5
+
+  printf 'alpha\rbravo\r' | shell send "${TEST_PREFIX}-stdin"
+  sleep 0.5
+
+  run zmx history "${TEST_PREFIX}-stdin"
+  echo "$output" | grep -q "got1:alpha"
+  echo "$output" | grep -q "got2:bravo"
+}
+
 @test "send errors on nonexistent session" {
   run shell send "nonexistent-$$" "hello"
   [ "$status" -ne 0 ]

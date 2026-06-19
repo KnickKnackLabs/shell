@@ -1,16 +1,19 @@
 #!/usr/bin/env bash
 #MISE description="Send input to a running shell session"
 #USAGE arg "<name>" help="Session name"
-#USAGE arg "<input>" help="Text to send to the session's PTY" var=#true
+#USAGE flag "--raw" default=#false help="Send exact bytes with no added carriage return"
+#USAGE arg "[input]" default="" help="Text to send to the session's PTY" var=#true
 set -euo pipefail
 
 NAME="${usage_name:-}"
+RAW="${usage_raw:-false}"
 
 # --- Parse variadic input args ---
 
 INPUT=()
 if [ -n "${usage_input:-}" ]; then
   while IFS= read -r arg; do
+    [ -z "$arg" ] && continue
     INPUT+=("$arg")
   done < <(printf '%s' "${usage_input}" | xargs printf '%s\n')
 fi
@@ -23,10 +26,17 @@ if [ -z "$NAME" ]; then
   exit 1
 fi
 
+STDIN_FILE=""
 if [ ${#INPUT[@]} -eq 0 ]; then
-  echo "Error: input required" >&2
-  echo "Usage: shell send <name> \"text to send\"" >&2
-  exit 1
+  STDIN_FILE=$(mktemp)
+  trap 'rm -f "$STDIN_FILE"' EXIT
+  cat >"$STDIN_FILE"
+  if [ ! -s "$STDIN_FILE" ]; then
+    rm -f "$STDIN_FILE"
+    echo "Error: input required" >&2
+    echo "Usage: shell send [--raw] <name> \"text to send\"" >&2
+    exit 1
+  fi
 fi
 
 # --- Dependency check ---
@@ -45,6 +55,22 @@ if ! zmx list --json 2>/dev/null | jq -e --arg name "$NAME" 'any(.[]; .name == $
 fi
 
 # --- Send ---
-# zmx run on an existing session sends text to the shell's PTY stdin.
+# zmx send writes raw PTY input without zmx run's task-completion marker.
+# Argument mode treats <input...> as one logical line by default and appends
+# carriage return so prompts receive Enter. Stdin mode forwards exact bytes;
+# callers piping multiline/file-backed input are responsible for terminators.
 
-zmx run "$NAME" "${INPUT[@]}" </dev/null >/dev/null 2>&1
+if [ ${#INPUT[@]} -gt 0 ]; then
+  PAYLOAD="${INPUT[0]}"
+  for arg in "${INPUT[@]:1}"; do
+    PAYLOAD="$PAYLOAD $arg"
+  done
+
+  if [ "$RAW" = "true" ]; then
+    printf '%s' "$PAYLOAD" | zmx send "$NAME" >/dev/null 2>&1
+  else
+    printf '%s\r' "$PAYLOAD" | zmx send "$NAME" >/dev/null 2>&1
+  fi
+else
+  zmx send "$NAME" <"$STDIN_FILE" >/dev/null 2>&1
+fi
