@@ -17,6 +17,17 @@ teardown() { teardown_zmx; }
   echo "$output" | grep -q "hello from send"
 }
 
+@test "send immediately after run reaches process stdin" {
+  shell run "${TEST_PREFIX}-immediate" python3 -u -c 'import sys; print("ready", flush=True); line=sys.stdin.readline(); print("got:" + repr(line), flush=True); sys.stdin.readline()'
+
+  shell send "${TEST_PREFIX}-immediate" "hello immediately"
+  sleep 0.5
+
+  run zmx history "${TEST_PREFIX}-immediate"
+  echo "$output" | grep -q "hello immediately"
+  echo "$output" | grep -q "got:.*hello immediately"
+}
+
 @test "send does not inject zmx task completion markers" {
   shell run "${TEST_PREFIX}-marker" python3 -u -c 'import sys; print("ready", flush=True); line=sys.stdin.readline(); print("got:" + repr(line), flush=True); sys.stdin.readline()'
   sleep 0.5
