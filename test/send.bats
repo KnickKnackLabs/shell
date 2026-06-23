@@ -81,6 +81,49 @@ teardown() { teardown_zmx; }
   echo "$output" | grep -qi "input\|message\|arg"
 }
 
+@test "send with no input refuses interactive stdin" {
+  session="${TEST_PREFIX}-tty-noinput"
+  shell run "$session" sleep 30
+
+  run python3 - "$REPO_DIR" "$session" <<'PY'
+import os
+import pty
+import subprocess
+import sys
+
+repo, name = sys.argv[1], sys.argv[2]
+master, slave = pty.openpty()
+try:
+    proc = subprocess.Popen(
+        ["mise", "-C", repo, "run", "-q", "send", name],
+        stdin=slave,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        env=os.environ.copy(),
+    )
+finally:
+    os.close(slave)
+
+try:
+    output, _ = proc.communicate(timeout=2)
+except subprocess.TimeoutExpired:
+    proc.kill()
+    output, _ = proc.communicate()
+    print(output, end="")
+    sys.exit(124)
+finally:
+    os.close(master)
+
+print(output, end="")
+sys.exit(proc.returncode)
+PY
+
+  [ "$status" -ne 0 ]
+  [ "$status" -ne 124 ]
+  echo "$output" | grep -qi "input required"
+}
+
 # --- shell run on existing sessions ---
 
 @test "run on idle existing session sends a new command" {

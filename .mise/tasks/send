@@ -28,6 +28,13 @@ fi
 
 STDIN_FILE=""
 if [ ${#INPUT[@]} -eq 0 ]; then
+  if [ -t 0 ]; then
+    echo "Error: input required" >&2
+    echo "Usage: shell send [--raw] <name> \"text to send\"" >&2
+    echo "  Or pipe stdin into shell send for exact byte forwarding." >&2
+    exit 1
+  fi
+
   STDIN_FILE=$(mktemp)
   trap 'rm -f "$STDIN_FILE"' EXIT
   cat >"$STDIN_FILE"

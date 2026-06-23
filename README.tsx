@@ -156,7 +156,7 @@ shell history dev             # full scrollback from both commands`}</CodeBlock>
         <Code>shell send</Code>
         {" delivers text to a session's PTY. Argument mode sends one logical line and appends carriage return, so prompts receive Enter. "}
         <Code>--raw</Code>
-        {" sends exact bytes with no added carriage return. Piped stdin is forwarded exactly for multiline or file-backed input."}
+        {" sends exact bytes with no added carriage return. Piped stdin is forwarded exactly for multiline or file-backed input; terminal stdin without input errors instead of waiting for EOF."}
       </Paragraph>
 
       <CodeBlock lang="bash">{String.raw`shell run repl python3

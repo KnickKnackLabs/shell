@@ -61,6 +61,15 @@ teardown() { teardown_zmx; }
   rmdir "$TESTDIR"
 }
 
+@test "run --cwd handles spaces and single quotes" {
+  TESTDIR="$BATS_TEST_TMPDIR/dir with spaces and ' quote"
+  mkdir -p "$TESTDIR"
+  shell run "${TEST_PREFIX}-cwdquote" --cwd "$TESTDIR" bash -c 'pwd > pwd.out'
+  shell wait "${TEST_PREFIX}-cwdquote"
+  [ -f "$TESTDIR/pwd.out" ]
+  grep -Fq "dir with spaces and ' quote" "$TESTDIR/pwd.out"
+}
+
 @test "run --cwd errors on nonexistent directory" {
   run shell run "${TEST_PREFIX}-badcwd" --cwd "/tmp/nonexistent-$$" echo hello
   [ "$status" -ne 0 ]

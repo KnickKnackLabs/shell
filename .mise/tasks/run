@@ -82,7 +82,9 @@ shell_quote() {
       printf "''"
     ;;
     *[!a-zA-Z0-9_./:=+,-]*)
-      printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\''/g")"
+      local value="$1"
+      value=${value//\'/\'\\\'\'}
+      printf "'%s'" "$value"
     ;;
     *)
       printf '%s' "$1"
