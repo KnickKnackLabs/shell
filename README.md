@@ -9,7 +9,7 @@ Shell gives them named sessions that survive — launch a process,
 come back later, read its output, send it input.
 
 ![lang: bash](https://img.shields.io/badge/lang-bash-4EAA25?style=flat&logo=gnubash&logoColor=white)
-[![tests: 41 passing](https://img.shields.io/badge/tests-41%20passing-brightgreen?style=flat)](test/)
+[![tests: 44 passing](https://img.shields.io/badge/tests-44%20passing-brightgreen?style=flat)](test/)
 [![backend: zmx](https://img.shields.io/badge/backend-zmx-blue?style=flat)](https://github.com/neurosnap/zmx)
 ![license: MIT](https://img.shields.io/badge/license-MIT-blue?style=flat)
 
@@ -78,7 +78,7 @@ shell run agent-task --cwd ~/project shimmer agent --headless "run the tests"
 
 ### Input injection
 
-`shell send` delivers text to a session's PTY. Argument mode sends one logical line and appends carriage return, so prompts receive Enter. `--raw` sends exact bytes with no added carriage return. Piped stdin is forwarded exactly for multiline or file-backed input.
+`shell send` delivers text to a session's PTY. Argument mode sends one logical line and appends carriage return, so prompts receive Enter. `--raw` sends exact bytes with no added carriage return. Piped stdin is forwarded exactly for multiline or file-backed input; terminal stdin without input errors instead of waiting for EOF.
 
 ```bash
 shell run repl python3
@@ -125,7 +125,7 @@ cd shell && mise trust && mise install
 mise run test
 ```
 
-**41 tests** across 8 suites, using [BATS 1.13.0](https://github.com/bats-core/bats-core). Tests create real zmx sessions and clean them up — each test gets an isolated socket directory so nothing bleeds between runs.
+**44 tests** across 8 suites, using [BATS 1.13.0](https://github.com/bats-core/bats-core). Tests create real zmx sessions and clean them up — each test gets an isolated socket directory so nothing bleeds between runs.
 
 Requires [zmx](https://github.com/neurosnap/zmx) to be installed separately. See [zmx.sh](https://zmx.sh) for installation.
 
