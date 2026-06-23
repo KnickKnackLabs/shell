@@ -71,18 +71,87 @@ if [ -n "$SESSION_STATUS" ]; then
 fi
 
 # --- Launch ---
+# zmx run -d only acknowledges that the daemon queued the PTY input. Shell's
+# contract is slightly stronger: return after the session shell has begun
+# executing the command, but before the command completes. Prefix the submitted
+# shell line with a marker-file write, then wait for that marker to appear.
+
+shell_quote() {
+  case "$1" in
+    "")
+      printf "''"
+    ;;
+    *[!a-zA-Z0-9_./:=+,-]*)
+      local value="$1"
+      value=${value//\'/\'\\\'\'}
+      printf "'%s'" "$value"
+    ;;
+    *)
+      printf '%s' "$1"
+    ;;
+  esac
+}
+
+build_run_line() {
+  local marker_file="$1"
+  shift
+
+  if [ -n "$CWD" ]; then
+    printf '( cd %s && { ' "$(shell_quote "$CWD")"
+  fi
+
+  printf ': > %s; ' "$(shell_quote "$marker_file")"
+
+  local first=true
+  local arg
+  for arg in "$@"; do
+    if $first; then
+      first=false
+    else
+      printf ' '
+    fi
+    shell_quote "$arg"
+  done
+
+  if [ -n "$CWD" ]; then
+    printf '; } )'
+  fi
+}
+
+wait_for_launch_marker() {
+  local marker_file="$1"
+  local i
+
+  for i in $(seq 1 100); do
+    if [ -f "$marker_file" ]; then
+      return 0
+    fi
+    sleep 0.1
+  done
+
+  echo "Error: session '$NAME' did not confirm command launch" >&2
+  echo "  zmx accepted the command, but the launch marker was not observed" >&2
+  return 1
+}
+
+if [ -n "$CWD" ] && [ ! -d "$CWD" ]; then
+  echo "Error: --cwd directory not found: $CWD" >&2
+  exit 1
+fi
+
+TMP_BASE="${TMPDIR:-/tmp}"
+TMP_BASE="${TMP_BASE%/}"
+MARKER_FILE=$(mktemp "$TMP_BASE/shell-run-started.XXXXXX")
+rm -f "$MARKER_FILE"
+RUN_LINE=$(build_run_line "$MARKER_FILE" "${COMMAND[@]}")
+
+cleanup_marker() {
+  rm -f "$MARKER_FILE"
+}
+trap cleanup_marker EXIT
+
 # Suppress zmx's "session created" / "command sent" output.
 # The session name is printed by this task on success.
-
-if [ -n "$CWD" ]; then
-  if [ ! -d "$CWD" ]; then
-    echo "Error: --cwd directory not found: $CWD" >&2
-    exit 1
-  fi
-  # Wrap command with cd — zmx spawns shells in its own directory,
-  # not the caller's, so we must cd inside the command itself.
-  zmx run "$NAME" bash -c "cd $(printf '%q' "$CWD") && $(printf '%q ' "${COMMAND[@]}")" </dev/null >/dev/null 2>&1
-else
-  zmx run "$NAME" "${COMMAND[@]}" </dev/null >/dev/null 2>&1
-fi
+zmx run "$NAME" -d eval "$RUN_LINE" </dev/null >/dev/null 2>&1
+wait_for_launch_marker "$MARKER_FILE"
 echo "$NAME"

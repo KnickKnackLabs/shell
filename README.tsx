@@ -154,11 +154,15 @@ shell history dev             # full scrollback from both commands`}</CodeBlock>
 
       <Paragraph>
         <Code>shell send</Code>
-        {" delivers raw text to a session's PTY. Whatever process owns the terminal receives it as stdin. Use this for interactive programs — typing into a running prompt, answering a confirmation, or sending commands to a REPL."}
+        {" delivers text to a session's PTY. Argument mode sends one logical line and appends carriage return, so prompts receive Enter. "}
+        <Code>--raw</Code>
+        {" sends exact bytes with no added carriage return. Piped stdin is forwarded exactly for multiline or file-backed input; terminal stdin without input errors instead of waiting for EOF."}
       </Paragraph>
 
-      <CodeBlock lang="bash">{`shell run repl python3
-shell send repl "print('hello from the outside')"
+      <CodeBlock lang="bash">{String.raw`shell run repl python3
+shell send repl "print('hello from the outside')"   # sends Enter
+shell send --raw repl $'\x03'                      # Ctrl-C, exact bytes
+printf 'first line\rsecond line\r' | shell send repl
 shell history repl`}</CodeBlock>
     </Section>
 
