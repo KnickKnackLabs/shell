@@ -6,7 +6,7 @@ task_output = "interleave"
 shiv = "https://github.com/KnickKnackLabs/vfox-shiv"
 
 [tools]
-"github:KnickKnackLabs/zmx" = "v0.6.0-alpha.kkl.4"
+"github:KnickKnackLabs/zmx" = "v0.7.0-kkl.1"
 "shiv:codebase" = "0.3"
 "shiv:readme" = "0.3"
 usage = "latest"
