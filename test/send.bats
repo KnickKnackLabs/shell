@@ -29,14 +29,15 @@ teardown() { teardown_zmx; }
 }
 
 @test "send does not inject zmx task completion markers" {
-  shell run "${TEST_PREFIX}-marker" python3 -u -c 'import sys; print("ready", flush=True); line=sys.stdin.readline(); print("got:" + repr(line), flush=True); sys.stdin.readline()'
+  # Encode the output prefix in the submitted source so terminal history does
+  # not contain a false `got:.*ZMX_TASK_COMPLETED` match on the echoed command.
+  shell run "${TEST_PREFIX}-marker" python3 -u -c 'import sys; print("\x67\x6f\x74\x3a" + repr(sys.stdin.readline()), flush=True); sys.stdin.readline()'
   sleep 0.5
 
   shell send "${TEST_PREFIX}-marker" "hello marker check"
   sleep 0.5
 
   run zmx history "${TEST_PREFIX}-marker"
-  echo "$output" | grep -q "hello marker check"
   echo "$output" | grep -q "got:.*hello marker check"
   ! echo "$output" | grep -q "got:.*ZMX_TASK_COMPLETED"
 }
