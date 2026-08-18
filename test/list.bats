@@ -38,7 +38,13 @@ teardown() { teardown_zmx; }
   echo "$output" | jq -e --arg name "${TEST_PREFIX}-schema" '
     .[]
     | select(.name == $name)
-    | has("created") and has("ended") and (has("created_at") | not)
+    | has("created")
+      and has("ended")
+      and has("clients")
+      and has("pty")
+      and has("foreground")
+      and has("last_task")
+      and (has("created_at") | not)
   ' >/dev/null
 }
 

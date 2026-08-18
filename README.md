@@ -20,7 +20,7 @@ $ shell run scout shimmer agent --headless "review PR #50"
 scout
 
 $ shell status scout
-running
+running (foreground pid 12345; last task running; clients 0)
 
 $ shell history scout
 Reading src/handler.rs...
@@ -43,7 +43,7 @@ shiv install shell
 shell run my-task make build
 
 # Check on it
-shell status my-task          # running / exited (0)
+shell status my-task          # running / idle / unknown / unreachable
 shell history my-task         # scrollback output
 
 # Wait for completion
@@ -58,14 +58,23 @@ The wrapping layer adds what zmx doesn't provide: input validation, session name
 
 ### Session reuse
 
-`shell run` on an existing session checks its state. If the previous command finished (idle), it sends a new command to the same shell. If a command is still running (busy), it errors and tells you to use `shell send` instead. This means you can treat a session like a workspace — run a task, wait, run the next one.
+`shell run` on an existing session checks the persistent PTY, not only the last managed task. It reuses the shell only when the terminal foreground is the idle shell prompt. A running or unknown foreground state blocks reuse and points you to `shell status --json`. This prevents a later interactive child from being mistaken for an exited task.
 
 ```bash
 shell run dev make build
 shell wait dev
-shell run dev make test       # reuses the same session
+shell run dev make test       # reuses the idle persistent shell
 shell wait dev
 shell history dev             # full scrollback from both commands
+```
+
+### Status model
+
+`shell status` reports the live session separately from its last managed task. The overall status is `running` when a managed task or later foreground process is active, `idle` when the persistent shell owns the terminal foreground, and `unknown` when foreground liveness cannot be established safely. `unreachable` preserves zmx transport failure. JSON output also includes PTY state, attached clients, foreground process evidence, and the last task result.
+
+```bash
+$ shell status --json dev
+{"name":"dev","status":"running","clients":1,"pty":{"status":"alive","pid":1200},"foreground":{"status":"running","pid":1210,"pgrp":1210},"last_task":{"status":"exited","exit_code":0}}
 ```
 
 ### Working directory
@@ -106,13 +115,13 @@ A typical spawn: `sessions wake` calls `shell run` with the right identity and s
 shell run scout --cwd ~/project shimmer agent --headless "review PR #50, post to #reviews"
 
 # Monitor from the outside
-shell status scout              # running
+shell status scout              # running, with foreground/task/client detail
 shell history scout             # what it's doing right now
 chat read reviews               # what it reported
 
 # When it's done
 shell wait scout
-shell status scout              # exited (0)
+shell status scout              # idle (last task exited 0; clients 0)
 ```
 
 Environment passes through — identity, API keys, PATH, tool configuration. The spawned agent inherits the caller's full environment, so `shimmer as` and `den agent:env` carry into the session automatically.
