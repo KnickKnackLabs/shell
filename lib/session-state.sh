@@ -2,8 +2,9 @@
 
 # Normalize zmx's last-task record into Shell's live-session contract.
 # A listed, reachable zmx session owns a persistent shell even after its last
-# managed task exits. The terminal foreground process group distinguishes an
-# idle shell prompt from a later process launched through raw PTY input.
+# managed task exits. A non-shell terminal foreground process group proves a
+# later process is active. A shell-owned group cannot prove an idle prompt,
+# because builtins and buffered input share that group.
 
 shell_foreground_json() {
   local shell_pid="$1"
@@ -35,7 +36,8 @@ shell_foreground_json() {
   fi
 
   if [ "$terminal_pgid" -eq "$shell_pgid" ]; then
-    jq -cn '{status: "idle"}'
+    jq -cn --argjson pgrp "$terminal_pgid" \
+      '{status: "unknown", pgrp: $pgrp, reason: "shell-process-group"}'
     return
   fi
 
@@ -104,9 +106,6 @@ shell_normalize_session_json() {
     case "$raw_status:$foreground_status" in
       exited*:running)
         status="running"
-      ;;
-      exited*:idle)
-        status="idle"
       ;;
       exited*:*)
         status="unknown"

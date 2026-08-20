@@ -9,7 +9,7 @@ Shell gives them named sessions that survive — launch a process,
 come back later, read its output, send it input.
 
 ![lang: bash](https://img.shields.io/badge/lang-bash-4EAA25?style=flat&logo=gnubash&logoColor=white)
-[![tests: 44 passing](https://img.shields.io/badge/tests-44%20passing-brightgreen?style=flat)](test/)
+[![tests: 46 passing](https://img.shields.io/badge/tests-46%20passing-brightgreen?style=flat)](test/)
 [![backend: zmx](https://img.shields.io/badge/backend-zmx-blue?style=flat)](https://github.com/neurosnap/zmx)
 ![license: MIT](https://img.shields.io/badge/license-MIT-blue?style=flat)
 
@@ -43,7 +43,7 @@ shiv install shell
 shell run my-task make build
 
 # Check on it
-shell status my-task          # running / idle / unknown / unreachable
+shell status my-task          # running / unknown / unreachable
 shell history my-task         # scrollback output
 
 # Wait for completion
@@ -54,23 +54,15 @@ shell wait my-task
 
 Shell wraps [zmx](https://github.com/neurosnap/zmx) — a lightweight session manager that gives processes persistent PTYs. Each `shell run` creates a named zmx session, runs your command inside it, and returns immediately. The process keeps running in the background. You interact with it by name.
 
-The wrapping layer adds what zmx doesn't provide: input validation, session name rules, idle/busy detection, working directory control, JSON output for scripting, and clear error messages when things go wrong.
+The wrapping layer adds what zmx doesn't provide: input validation, session name rules, safe existing-session refusal, working directory control, JSON output for scripting, and clear error messages when things go wrong.
 
-### Session reuse
+### Existing sessions
 
-`shell run` on an existing session checks the persistent PTY, not only the last managed task. It reuses the shell only when the terminal foreground is the idle shell prompt. A running or unknown foreground state blocks reuse and points you to `shell status --json`. This prevents a later interactive child from being mistaken for an exited task.
-
-```bash
-shell run dev make build
-shell wait dev
-shell run dev make test       # reuses the idle persistent shell
-shell wait dev
-shell history dev             # full scrollback from both commands
-```
+`shell run` creates a new named session only. It refuses an existing persistent PTY even when zmx says its last managed task exited: a terminal foreground snapshot cannot prove that a shell prompt is idle or exclusively owned. Use `shell status --json` to inspect it, `shell send` only when you already know the PTY is safe to drive, or `shell kill` before starting a new managed command.
 
 ### Status model
 
-`shell status` reports the live session separately from its last managed task. The overall status is `running` when a managed task or later foreground process is active, `idle` when the persistent shell owns the terminal foreground, and `unknown` when foreground liveness cannot be established safely. `unreachable` preserves zmx transport failure. JSON output also includes PTY state, attached clients, foreground process evidence, and the last task result.
+`shell status` reports the live session separately from its last managed task. The overall status is `running` when a managed task or later foreground process is active, and `unknown` when the PTY is alive but prompt safety cannot be proven, including when the shell owns the terminal foreground. `unreachable` preserves zmx transport failure. JSON output also includes PTY state, attached clients, foreground process evidence, and the last task result.
 
 ```bash
 $ shell status --json dev
@@ -121,7 +113,7 @@ chat read reviews               # what it reported
 
 # When it's done
 shell wait scout
-shell status scout              # idle (last task exited 0; clients 0)
+shell status scout              # unknown (last task exited 0; persistent PTY remains)
 ```
 
 Environment passes through — identity, API keys, PATH, tool configuration. The spawned agent inherits the caller's full environment, so `shimmer as` and `den agent:env` carry into the session automatically.
@@ -134,7 +126,7 @@ cd shell && mise trust && mise install
 mise run test
 ```
 
-**44 tests** across 8 suites, using [BATS 1.13.0](https://github.com/bats-core/bats-core). Tests create real zmx sessions and clean them up — each test gets an isolated socket directory so nothing bleeds between runs.
+**46 tests** across 8 suites, using [BATS 1.13.0](https://github.com/bats-core/bats-core). Tests create real zmx sessions and clean them up — each test gets an isolated socket directory so nothing bleeds between runs.
 
 Requires [zmx](https://github.com/neurosnap/zmx) to be installed separately. See [zmx.sh](https://zmx.sh) for installation.
 

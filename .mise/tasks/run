@@ -60,12 +60,11 @@ if [ -n "$SESSION_JSON" ]; then
   NORMALIZED_JSON=$(shell_normalize_session_json "$SESSION_JSON")
   SESSION_STATUS=$(printf '%s' "$NORMALIZED_JSON" | jq -r '.status')
 
-  if [ "$SESSION_STATUS" != "idle" ]; then
-    echo "Error: session '$NAME' is not safely idle (status: $SESSION_STATUS)" >&2
-    echo "  Use 'shell status --json $NAME' to inspect PTY, foreground, and last-task state" >&2
-    echo "  Use 'shell send $NAME <input>' for a known live process or 'shell kill $NAME' to stop it" >&2
-    exit 1
-  fi
+  echo "Error: session '$NAME' already has a persistent PTY (status: $SESSION_STATUS)" >&2
+  echo "  Shell cannot prove an existing prompt is idle or exclusively owned." >&2
+  echo "  Use 'shell status --json $NAME' to inspect PTY, foreground, and last-task state" >&2
+  echo "  Use 'shell send $NAME <input>' only when you know the PTY is safe to drive, or 'shell kill $NAME' to stop it" >&2
+  exit 1
 fi
 
 # --- Launch ---

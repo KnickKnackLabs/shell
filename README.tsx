@@ -103,7 +103,7 @@ shiv install shell
 shell run my-task make build
 
 # Check on it
-shell status my-task          # running / idle / unknown / unreachable
+shell status my-task          # running / unknown / unreachable
 shell history my-task         # scrollback output
 
 # Wait for completion
@@ -120,23 +120,21 @@ shell wait my-task`}</CodeBlock>
       </Paragraph>
 
       <Paragraph>
-        {"The wrapping layer adds what zmx doesn't provide: input validation, session name rules, idle/busy detection, working directory control, JSON output for scripting, and clear error messages when things go wrong."}
+        {"The wrapping layer adds what zmx doesn't provide: input validation, session name rules, safe existing-session refusal, working directory control, JSON output for scripting, and clear error messages when things go wrong."}
       </Paragraph>
 
-      <Heading level={3}>Session reuse</Heading>
+      <Heading level={3}>Existing sessions</Heading>
 
       <Paragraph>
         <Code>shell run</Code>
-        {" on an existing session checks the persistent PTY, not only the last managed task. It reuses the shell only when the terminal foreground is the idle shell prompt. A running or unknown foreground state blocks reuse and points you to "}
+        {" creates a new named session only. It refuses an existing persistent PTY even when zmx says its last managed task exited: a terminal foreground snapshot cannot prove that a shell prompt is idle or exclusively owned. Use "}
         <Code>shell status --json</Code>
-        {". This prevents a later interactive child from being mistaken for an exited task."}
+        {" to inspect it, "}
+        <Code>shell send</Code>
+        {" only when you already know the PTY is safe to drive, or "}
+        <Code>shell kill</Code>
+        {" before starting a new managed command."}
       </Paragraph>
-
-      <CodeBlock lang="bash">{`shell run dev make build
-shell wait dev
-shell run dev make test       # reuses the idle persistent shell
-shell wait dev
-shell history dev             # full scrollback from both commands`}</CodeBlock>
 
       <Heading level={3}>Status model</Heading>
 
@@ -144,11 +142,9 @@ shell history dev             # full scrollback from both commands`}</CodeBlock>
         <Code>shell status</Code>
         {" reports the live session separately from its last managed task. The overall status is "}
         <Code>running</Code>
-        {" when a managed task or later foreground process is active, "}
-        <Code>idle</Code>
-        {" when the persistent shell owns the terminal foreground, and "}
+        {" when a managed task or later foreground process is active, and "}
         <Code>unknown</Code>
-        {" when foreground liveness cannot be established safely. "}
+        {" when the PTY is alive but prompt safety cannot be proven, including when the shell owns the terminal foreground. "}
         <Code>unreachable</Code>
         {" preserves zmx transport failure. JSON output also includes PTY state, attached clients, foreground process evidence, and the last task result."}
       </Paragraph>
@@ -213,7 +209,7 @@ chat read reviews               # what it reported
 
 # When it's done
 shell wait scout
-shell status scout              # idle (last task exited 0; clients 0)`}</CodeBlock>
+shell status scout              # unknown (last task exited 0; persistent PTY remains)`}</CodeBlock>
 
       <Paragraph>
         {"Environment passes through — identity, API keys, PATH, tool configuration. The spawned agent inherits the caller's full environment, so "}

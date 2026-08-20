@@ -43,21 +43,22 @@ wait_for_status() {
   ' >/dev/null
 }
 
-@test "status shows an idle PTY separately from its exited last task" {
+@test "status preserves an exited task but marks its shell-owned foreground unknown" {
   shell run "${TEST_PREFIX}-done" echo done
   shell wait "${TEST_PREFIX}-done"
 
   run shell status "${TEST_PREFIX}-done"
   [ "$status" -eq 0 ]
-  [[ "$output" == idle* ]]
+  [[ "$output" == unknown* ]]
   [[ "$output" == *"last task exited 0"* ]]
 
   run shell status --json "${TEST_PREFIX}-done"
   [ "$status" -eq 0 ]
   printf '%s\n' "$output" | jq -e '
-    .status == "idle"
+    .status == "unknown"
     and .pty.status == "alive"
-    and .foreground.status == "idle"
+    and .foreground.status == "unknown"
+    and .foreground.reason == "shell-process-group"
     and .last_task.status == "exited"
     and .last_task.exit_code == 0
     and .exit_code == 0
@@ -84,7 +85,7 @@ wait_for_status() {
 
   run shell run "$name" echo must-not-overlap
   [ "$status" -ne 0 ]
-  [[ "$output" == *"not safely idle"* ]]
+  [[ "$output" == *"cannot prove"* ]]
 
   python3 "$REPO_DIR/test/pty-attach-client.py" "$name" "$ready" &
   ATTACH_PID=$!
@@ -107,10 +108,62 @@ wait_for_status() {
 
   printf '\003' | shell send --raw "$name"
   wait_for_status "$name" '
-    .status == "idle"
-    and .foreground.status == "idle"
+    .status == "unknown"
+    and .foreground.status == "unknown"
+    and .foreground.reason == "shell-process-group"
     and .last_task.status == "exited"
   ' >/dev/null
+}
+
+@test "status and run fail closed for a shell builtin sharing the shell process group" {
+  local name="${TEST_PREFIX}-builtin"
+
+  shell run "$name" echo initial-finished
+  shell wait "$name"
+  shell send "$name" 'read captured'
+
+  wait_for_status "$name" '
+    .status == "unknown"
+    and .foreground.status == "unknown"
+    and .foreground.reason == "shell-process-group"
+    and .last_task.status == "exited"
+  ' >/dev/null
+
+  run shell run "$name" echo must-not-run
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"cannot prove"* ]]
+
+  run zmx history "$name"
+  [[ "$output" != *"must-not-run"* ]]
+}
+
+@test "status and run fail closed with an attached client at a shell-owned foreground" {
+  local name="${TEST_PREFIX}-attached"
+  local ready="$BATS_TEST_TMPDIR/attach-idle-ready"
+
+  shell run "$name" echo initial-finished
+  shell wait "$name"
+  python3 "$REPO_DIR/test/pty-attach-client.py" "$name" "$ready" &
+  ATTACH_PID=$!
+  for _ in $(seq 1 50); do
+    [ -f "$ready" ] && break
+    sleep 0.1
+  done
+  [ -f "$ready" ]
+
+  wait_for_status "$name" '
+    .status == "unknown"
+    and .clients == 1
+    and .foreground.status == "unknown"
+    and .foreground.reason == "shell-process-group"
+  ' >/dev/null
+
+  run shell run "$name" echo must-not-run
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"cannot prove"* ]]
+
+  run zmx history "$name"
+  [[ "$output" != *"must-not-run"* ]]
 }
 
 @test "normalization preserves unknown when foreground state cannot be proven" {
