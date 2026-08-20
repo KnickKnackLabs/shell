@@ -127,15 +127,17 @@ PY
 
 # --- shell run on existing sessions ---
 
-@test "run on idle existing session sends a new command" {
+@test "run on an existing completed session refuses unproven prompt reuse" {
   shell run "${TEST_PREFIX}-reuse" echo first
   shell wait "${TEST_PREFIX}-reuse"
-  # Session is now idle (exited). Run again.
-  shell run "${TEST_PREFIX}-reuse" echo second
-  shell wait "${TEST_PREFIX}-reuse"
+
+  run shell run "${TEST_PREFIX}-reuse" echo second
+
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"cannot prove"* ]]
   run zmx history "${TEST_PREFIX}-reuse"
   echo "$output" | grep -q "first"
-  echo "$output" | grep -q "second"
+  ! echo "$output" | grep -q "second"
 }
 
 @test "run on busy existing session errors with guidance" {

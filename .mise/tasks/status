@@ -19,6 +19,8 @@ fi
 
 JSON="${usage_json:-false}"
 
+source "$MISE_CONFIG_ROOT/lib/session-state.sh"
+
 SESSION_JSON=$(zmx list --json 2>/dev/null | jq -c --arg name "$NAME" 'first(.[] | select(.name == $name)) // empty')
 
 if [ -z "$SESSION_JSON" ]; then
@@ -30,34 +32,10 @@ if [ -z "$SESSION_JSON" ]; then
   exit 1
 fi
 
-ZMX_STATUS=$(printf '%s' "$SESSION_JSON" | jq -r '.status // ""')
-EXIT_CODE=$(printf '%s' "$SESSION_JSON" | jq -r '.exit_code // empty')
-
-case "$ZMX_STATUS" in
-  exited*)
-    STATUS="exited"
-  ;;
-  unreachable)
-    STATUS="unreachable"
-    EXIT_CODE=""
-  ;;
-  *)
-    STATUS="running"
-    EXIT_CODE=""
-  ;;
-esac
+NORMALIZED_JSON=$(shell_normalize_session_json "$SESSION_JSON")
 
 if [ "$JSON" = "true" ]; then
-  if [ -n "$EXIT_CODE" ]; then
-    jq -cn --arg name "$NAME" --arg status "$STATUS" --argjson exit_code "$EXIT_CODE" \
-      '{name: $name, status: $status, exit_code: $exit_code}'
-  else
-    jq -cn --arg name "$NAME" --arg status "$STATUS" '{name: $name, status: $status}'
-  fi
+  printf '%s\n' "$NORMALIZED_JSON"
 else
-  if [ "$STATUS" = "exited" ] && [ -n "$EXIT_CODE" ]; then
-    echo "$STATUS ($EXIT_CODE)"
-  else
-    echo "$STATUS"
-  fi
+  shell_status_summary "$NORMALIZED_JSON"
 fi

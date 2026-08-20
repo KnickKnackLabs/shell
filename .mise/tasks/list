@@ -10,29 +10,24 @@ fi
 
 JSON="${usage_json:-false}"
 
+source "$MISE_CONFIG_ROOT/lib/session-state.sh"
+
 SESSIONS_JSON=$(zmx list --json 2>/dev/null)
+NORMALIZED=()
+while IFS= read -r session_json; do
+  [ -z "$session_json" ] && continue
+  NORMALIZED+=("$(shell_normalize_session_json "$session_json")")
+done < <(printf '%s\n' "$SESSIONS_JSON" | jq -c '.[]')
 
 if [ "$JSON" = "true" ]; then
-  printf '%s\n' "$SESSIONS_JSON" | jq -c '[.[] | {
-    name: (.name // ""),
-    pid: (.pid // 0),
-    clients: (.clients // 0),
-    created: (.created // .created_at // 0),
-    cmd: (.cmd // ""),
-    ended: (if ((.status // "") | startswith("exited")) then (.ended // .ended_at // .created_at // 1) else -1 end),
-    exit_code: (if ((.status // "") | startswith("exited")) then (.exit_code // -1) else -1 end)
-  }]'
+  printf '%s\n' ${NORMALIZED[@]+"${NORMALIZED[@]}"} | jq -sc '.'
+elif [ ${#NORMALIZED[@]} -eq 0 ]; then
+  echo "No active shells."
 else
-  count=$(printf '%s\n' "$SESSIONS_JSON" | jq 'length')
-  if [ "$count" -eq 0 ]; then
-    echo "No active shells."
-  else
-    printf '%s\n' "$SESSIONS_JSON" | jq -r '.[] | [
-      (.name // ""),
-      (if ((.status // "") | startswith("exited")) then "exited (\(.exit_code // "?"))" else (.status // "") end),
-      (.cmd // "")
-    ] | @tsv' | while IFS=$'\t' read -r name status cmd; do
-      printf "%-30s %-15s %s\n" "$name" "$status" "$cmd"
-    done
-  fi
+  for session_json in "${NORMALIZED[@]}"; do
+    name=$(printf '%s' "$session_json" | jq -r '.name')
+    cmd=$(printf '%s' "$session_json" | jq -r '.cmd')
+    summary=$(shell_status_summary "$session_json")
+    printf "%-30s %-55s %s\n" "$name" "$summary" "$cmd"
+  done
 fi

@@ -42,7 +42,7 @@ const lifecycle = [
   "scout",
   "",
   "$ shell status scout",
-  "running",
+  "running (foreground pid 12345; last task running; clients 0)",
   "",
   "$ shell history scout",
   "Reading src/handler.rs...",
@@ -103,7 +103,7 @@ shiv install shell
 shell run my-task make build
 
 # Check on it
-shell status my-task          # running / exited (0)
+shell status my-task          # running / unknown / unreachable
 shell history my-task         # scrollback output
 
 # Wait for completion
@@ -120,23 +120,37 @@ shell wait my-task`}</CodeBlock>
       </Paragraph>
 
       <Paragraph>
-        {"The wrapping layer adds what zmx doesn't provide: input validation, session name rules, idle/busy detection, working directory control, JSON output for scripting, and clear error messages when things go wrong."}
+        {"The wrapping layer adds what zmx doesn't provide: input validation, session name rules, safe existing-session refusal, working directory control, JSON output for scripting, and clear error messages when things go wrong."}
       </Paragraph>
 
-      <Heading level={3}>Session reuse</Heading>
+      <Heading level={3}>Existing sessions</Heading>
 
       <Paragraph>
         <Code>shell run</Code>
-        {" on an existing session checks its state. If the previous command finished (idle), it sends a new command to the same shell. If a command is still running (busy), it errors and tells you to use "}
+        {" creates a new named session only. It refuses an existing persistent PTY even when zmx says its last managed task exited: a terminal foreground snapshot cannot prove that a shell prompt is idle or exclusively owned. Use "}
+        <Code>shell status --json</Code>
+        {" to inspect it, "}
         <Code>shell send</Code>
-        {" instead. This means you can treat a session like a workspace — run a task, wait, run the next one."}
+        {" only when you already know the PTY is safe to drive, or "}
+        <Code>shell kill</Code>
+        {" before starting a new managed command."}
       </Paragraph>
 
-      <CodeBlock lang="bash">{`shell run dev make build
-shell wait dev
-shell run dev make test       # reuses the same session
-shell wait dev
-shell history dev             # full scrollback from both commands`}</CodeBlock>
+      <Heading level={3}>Status model</Heading>
+
+      <Paragraph>
+        <Code>shell status</Code>
+        {" reports the live session separately from its last managed task. The overall status is "}
+        <Code>running</Code>
+        {" when a managed task or later foreground process is active, and "}
+        <Code>unknown</Code>
+        {" when the PTY is alive but prompt safety cannot be proven, including when the shell owns the terminal foreground. "}
+        <Code>unreachable</Code>
+        {" preserves zmx transport failure. JSON output also includes PTY state, attached clients, foreground process evidence, and the last task result."}
+      </Paragraph>
+
+      <CodeBlock lang="bash">{`$ shell status --json dev
+{"name":"dev","status":"running","clients":1,"pty":{"status":"alive","pid":1200},"foreground":{"status":"running","pid":1210,"pgrp":1210},"last_task":{"status":"exited","exit_code":0}}`}</CodeBlock>
 
       <Heading level={3}>Working directory</Heading>
 
@@ -189,13 +203,13 @@ shell history repl`}</CodeBlock>
 shell run scout --cwd ~/project shimmer agent --headless "review PR #50, post to #reviews"
 
 # Monitor from the outside
-shell status scout              # running
+shell status scout              # running, with foreground/task/client detail
 shell history scout             # what it's doing right now
 chat read reviews               # what it reported
 
 # When it's done
 shell wait scout
-shell status scout              # exited (0)`}</CodeBlock>
+shell status scout              # unknown (last task exited 0; persistent PTY remains)`}</CodeBlock>
 
       <Paragraph>
         {"Environment passes through — identity, API keys, PATH, tool configuration. The spawned agent inherits the caller's full environment, so "}
