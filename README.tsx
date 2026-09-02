@@ -164,6 +164,31 @@ shell send repl "print('hello from the outside')"   # sends Enter
 shell send --raw repl $'\x03'                      # Ctrl-C, exact bytes
 printf 'first line\rsecond line\r' | shell send repl
 shell history repl`}</CodeBlock>
+
+      <Heading level={3}>Named keys</Heading>
+
+      <Paragraph>
+        <Code>shell send-key</Code>
+        {" sends one key from a small explicit allowlist, without making callers spell terminal bytes. Plain and control keys use conventional terminal bytes. Modified keys use Kitty CSI-u encoding, so the receiving terminal application decides whether and how to bind them."}
+      </Paragraph>
+
+      <CodeBlock lang="bash">{`shell send-key agent escape       # Escape
+shell send-key agent ctrl+c       # Ctrl-C
+shell send-key agent alt+enter    # Kitty CSI-u Alt+Enter`}</CodeBlock>
+
+      <Paragraph>
+        {"Supported keys: "}
+        <Code>escape</Code>{", "}
+        <Code>enter</Code>{", "}
+        <Code>tab</Code>{", "}
+        <Code>backspace</Code>{", "}
+        <Code>ctrl+c</Code>{", "}
+        <Code>ctrl+d</Code>{", "}
+        <Code>ctrl+z</Code>{", "}
+        <Code>alt+enter</Code>{", "}
+        <Code>alt+tab</Code>{", and "}
+        <Code>super+enter</Code>{"."}
+      </Paragraph>
     </Section>
 
     <Section title="Spawning agents">
