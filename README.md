@@ -9,7 +9,7 @@ Shell gives them named sessions that survive — launch a process,
 come back later, read its output, send it input.
 
 ![lang: bash](https://img.shields.io/badge/lang-bash-4EAA25?style=flat&logo=gnubash&logoColor=white)
-[![tests: 44 passing](https://img.shields.io/badge/tests-44%20passing-brightgreen?style=flat)](test/)
+[![tests: 49 passing](https://img.shields.io/badge/tests-49%20passing-brightgreen?style=flat)](test/)
 [![backend: zmx](https://img.shields.io/badge/backend-zmx-blue?style=flat)](https://github.com/neurosnap/zmx)
 ![license: MIT](https://img.shields.io/badge/license-MIT-blue?style=flat)
 
@@ -88,6 +88,18 @@ printf 'first line\rsecond line\r' | shell send repl
 shell history repl
 ```
 
+### Named keys
+
+`shell send-key` sends one key from a small explicit allowlist, without making callers spell terminal bytes. Plain and control keys use conventional terminal bytes. Modified keys use Kitty CSI-u encoding, so the receiving terminal application decides whether and how to bind them.
+
+```bash
+shell send-key agent escape       # Escape
+shell send-key agent ctrl+c       # Ctrl-C
+shell send-key agent alt+enter    # Kitty CSI-u Alt+Enter
+```
+
+Supported keys: `escape`, `enter`, `tab`, `backspace`, `ctrl+c`, `ctrl+d`, `ctrl+z`, `alt+enter`, `alt+tab`, and `super+enter`.
+
 ## Spawning agents
 
 Shell is one layer in a stack where agents launch other agents. Each layer has a single job:
@@ -125,7 +137,7 @@ cd shell && mise trust && mise install
 mise run test
 ```
 
-**44 tests** across 8 suites, using [BATS 1.13.0](https://github.com/bats-core/bats-core). Tests create real zmx sessions and clean them up — each test gets an isolated socket directory so nothing bleeds between runs.
+**49 tests** across 9 suites, using [BATS 1.13.0](https://github.com/bats-core/bats-core). Tests create real zmx sessions and clean them up — each test gets an isolated socket directory so nothing bleeds between runs.
 
 Requires [zmx](https://github.com/neurosnap/zmx) to be installed separately. See [zmx.sh](https://zmx.sh) for installation.
 
