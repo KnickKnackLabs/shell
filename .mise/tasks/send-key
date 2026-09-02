@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+#MISE description="Send one named key to a running shell session"
+#USAGE arg "<name>" help="Session name"
+#USAGE arg "<key>" help="Key name"
+#USAGE example "shell send-key agent escape" header="Interrupt a Pi operation"
+#USAGE example "shell send-key agent alt+enter" header="Queue a Pi follow-up"
+set -euo pipefail
+
+NAME="${usage_name:-}"
+KEY="${usage_key:-}"
+
+if [ -z "$NAME" ]; then
+  echo "Error: session name required" >&2
+  echo "Usage: shell send-key <name> <key>" >&2
+  exit 1
+fi
+
+if [ -z "$KEY" ]; then
+  echo "Error: key name required" >&2
+  echo "Usage: shell send-key <name> <key>" >&2
+  exit 1
+fi
+
+# Plain keys use their conventional terminal bytes. Modified keys use Kitty's
+# CSI-u encoding; the receiving terminal application decides how to bind them.
+case "$KEY" in
+  escape) SEQUENCE='\033' ;;
+  enter) SEQUENCE='\r' ;;
+  tab) SEQUENCE='\t' ;;
+  backspace) SEQUENCE='\177' ;;
+  ctrl+c) SEQUENCE='\003' ;;
+  ctrl+d) SEQUENCE='\004' ;;
+  ctrl+z) SEQUENCE='\032' ;;
+  alt+enter) SEQUENCE='\033[13;3u' ;;
+  alt+tab) SEQUENCE='\033[9;3u' ;;
+  super+enter) SEQUENCE='\033[13;9u' ;;
+  *)
+    echo "Error: unsupported key '$KEY'" >&2
+    echo "Supported keys: escape, enter, tab, backspace, ctrl+c, ctrl+d, ctrl+z, alt+enter, alt+tab, super+enter" >&2
+    exit 1
+    ;;
+esac
+
+if ! command -v zmx >/dev/null 2>&1; then
+  echo "Error: zmx is required but not installed" >&2
+  exit 1
+fi
+
+if ! zmx list --json 2>/dev/null | jq -e --arg name "$NAME" 'any(.[]; .name == $name)' >/dev/null; then
+  echo "Error: no session named '$NAME'" >&2
+  echo "  Use 'shell list' to see active sessions" >&2
+  exit 1
+fi
+
+printf '%b' "$SEQUENCE" | zmx send "$NAME" >/dev/null 2>&1
