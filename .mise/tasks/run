@@ -2,11 +2,17 @@
 #MISE description="Launch a command in a persistent named shell"
 #USAGE arg "<name>" help="Session name (alphanumeric, hyphens, underscores)"
 #USAGE flag "--cwd <cwd>" help="Working directory for the command"
+#USAGE flag "--probe-ready" default=#false help="Require the session shell to execute a harmless probe before submitting the command"
+#USAGE flag "--ready-timeout <seconds>" help="Probe deadline in seconds, 1-300 (default: 10; requires --probe-ready)"
 #USAGE arg "<command>" help="Command to run" var=#true
+#USAGE example "shell run --probe-ready --ready-timeout 10 --cwd /path/to/home desk-name /path/to/launcher" header="Wait for shell execution before a desk wake"
 set -euo pipefail
 
 NAME="${usage_name:-}"
 CWD="${usage_cwd:-}"
+PROBE_READY="${usage_probe_ready:-false}"
+READY_TIMEOUT="${usage_ready_timeout:-10}"
+ZMX_BIN="${ZMX_BIN:-zmx}"
 
 # --- Parse variadic command args (mise passes them as a shell-escaped string) ---
 
@@ -42,10 +48,18 @@ if [ ${#COMMAND[@]} -eq 0 ]; then
   echo "Usage: shell run <name> <command...>" >&2
   exit 1
 fi
+if ! [[ "$READY_TIMEOUT" =~ ^[1-9][0-9]{0,2}$ ]] || [ "$READY_TIMEOUT" -gt 300 ]; then
+  echo "Error: --ready-timeout must be an integer from 1 to 300" >&2
+  exit 1
+fi
+if [ -n "${usage_ready_timeout:-}" ] && [ "$PROBE_READY" != true ]; then
+  echo "Error: --ready-timeout requires --probe-ready" >&2
+  exit 1
+fi
 
 # --- Dependency check ---
 
-if ! command -v zmx >/dev/null 2>&1; then
+if ! command -v "$ZMX_BIN" >/dev/null 2>&1; then
   echo "Error: zmx is required but not installed" >&2
   echo "  Install: https://zmx.sh" >&2
   exit 1
@@ -53,7 +67,7 @@ fi
 
 # --- Check for existing session ---
 
-SESSION_STATUS=$(zmx list --json 2>/dev/null | jq -r --arg name "$NAME" 'first(.[] | select(.name == $name) | .status) // empty')
+SESSION_STATUS=$("$ZMX_BIN" list --json 2>/dev/null | jq -r --arg name "$NAME" 'first(.[] | select(.name == $name) | .status) // empty')
 if [ -n "$SESSION_STATUS" ]; then
   case "$SESSION_STATUS" in
     exited*)
@@ -134,6 +148,26 @@ wait_for_launch_marker() {
   return 1
 }
 
+probe_shell_readiness() {
+  local marker_file="$1" deadline=$((SECONDS + READY_TIMEOUT))
+  local poll
+
+  # An acknowledged zmx run can be read by a login-time terminal program.
+  # Only this file effect proves that the session shell executed a probe.
+  while [ "$SECONDS" -lt "$deadline" ]; do
+    [ ! -f "$marker_file" ] || return 0
+    "$ZMX_BIN" run "$NAME" -d eval ": > $(shell_quote "$marker_file")" </dev/null >/dev/null 2>&1
+    for poll in 1 2 3 4 5; do
+      [ ! -f "$marker_file" ] || return 0
+      [ "$SECONDS" -lt "$deadline" ] || break
+      sleep 0.1
+    done
+  done
+  [ ! -f "$marker_file" ] || return 0
+  echo "Error: session '$NAME' did not execute a readiness probe within ${READY_TIMEOUT}s" >&2
+  return 1
+}
+
 if [ -n "$CWD" ] && [ ! -d "$CWD" ]; then
   echo "Error: --cwd directory not found: $CWD" >&2
   exit 1
@@ -144,14 +178,21 @@ TMP_BASE="${TMP_BASE%/}"
 MARKER_FILE=$(mktemp "$TMP_BASE/shell-run-started.XXXXXX")
 rm -f "$MARKER_FILE"
 RUN_LINE=$(build_run_line "$MARKER_FILE" "${COMMAND[@]}")
+PROBE_DIR=
 
 cleanup_marker() {
   rm -f "$MARKER_FILE"
+  [ -z "$PROBE_DIR" ] || rm -rf -- "$PROBE_DIR"
 }
 trap cleanup_marker EXIT
 
+if [ "$PROBE_READY" = true ]; then
+  PROBE_DIR=$(mktemp -d "$TMP_BASE/shell-run-probe.XXXXXX")
+  probe_shell_readiness "$PROBE_DIR/executed"
+fi
+
 # Suppress zmx's "session created" / "command sent" output.
 # The session name is printed by this task on success.
-zmx run "$NAME" -d eval "$RUN_LINE" </dev/null >/dev/null 2>&1
+"$ZMX_BIN" run "$NAME" -d eval "$RUN_LINE" </dev/null >/dev/null 2>&1
 wait_for_launch_marker "$MARKER_FILE"
 echo "$NAME"

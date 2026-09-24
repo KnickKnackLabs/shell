@@ -150,6 +150,20 @@ shell history dev             # full scrollback from both commands`}</CodeBlock>
 
       <CodeBlock lang="bash">{`shell run agent-task --cwd ~/project shimmer agent --headless "run the tests"`}</CodeBlock>
 
+      <Heading level={3}>Startup readiness for desk wakes</Heading>
+
+      <Paragraph>
+        {"For a fresh session whose login program may read terminal input, opt in to "}
+        <Code>--probe-ready</Code>
+        {". Shell submits harmless file-effect probes until the session executes one, then submits the requested command once. "}
+        <Code>--ready-timeout</Code>
+        {" sets a separate 1–300-second deadline (default 10). If no probe executes, the requested command is not sent; the session remains available for inspection. Ordinary "}
+        <Code>shell run</Code>
+        {" is unchanged."}
+      </Paragraph>
+
+      <CodeBlock lang="bash">{`shell run --probe-ready --ready-timeout 10 --cwd ~/agent/home agent-desk /path/to/launcher`}</CodeBlock>
+
       <Heading level={3}>Input injection</Heading>
 
       <Paragraph>
